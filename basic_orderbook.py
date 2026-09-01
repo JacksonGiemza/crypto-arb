@@ -1,41 +1,8 @@
 import websocket
 import json
 import heapq
-import time
 
-timer_stats = {}
-
-def timer(func):
-    def wrapper(*args,**kwargs):
-        name = func.__name__
-
-        if name not in timer_stats:
-            timer_stats[name] = {
-                "calls": 0,
-                "total_ns": 0,
-                "min_ns": float("inf"),
-                "max_ns": -float("inf"),
-            }
-
-        start = time.perf_counter_ns()
-
-        result = func(*args,**kwargs)
-
-        end = time.perf_counter_ns()
-
-        elapsed = end - start
-
-        timer_stats[name]["calls"] += 1
-        timer_stats[name]["total_ns"] += elapsed
-
-        if elapsed < timer_stats[name]["min_ns"]:
-            timer_stats[name]["min_ns"] = elapsed
-
-        if elapsed > timer_stats[name]["max_ns"]:
-            timer_stats[name]["max_ns"] = elapsed
-
-        return result
-    return wrapper
+from tools import timer, report_stats
 
 url = "wss://advanced-trade-ws.coinbase.com"
 
@@ -119,11 +86,7 @@ while True:
             print_book(best_bid_price, best_ask_price)
 
     except KeyboardInterrupt:
-        for func_name in timer_stats:
-            average = timer_stats[func_name]["total_ns"] / timer_stats[func_name]["calls"]
-            timer_stats[func_name]["avg_ns"] = round(average, 2)
-
-        print(timer_stats)
+        report_stats()
         break
 
     except Exception as e:

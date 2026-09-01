@@ -1,0 +1,18 @@
+[project]
+name = "crypto-arb"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Jackson Giemza", email = "jackson.giemza@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "websocket-client>=1.9.2",
+]
+
+[project.scripts]
+crypto-arb = "crypto_arb:main"
+
+[build-system]
+requires = ["uv_build>=0.12.8,<0.13.0"]
+build-backend = "uv_build"
