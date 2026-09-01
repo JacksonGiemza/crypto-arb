@@ -10,10 +10,9 @@ def timer(func):
         name = func.__name__
 
         if name not in timer_stats:
-            timer_stats = {
+            timer_stats[name] = {
                 "calls": 0,
                 "total_ns": 0,
-                "avg_ns": 0,
                 "min_ns": float("inf"),
                 "max_ns": -float("inf"),
             }
@@ -34,7 +33,7 @@ def timer(func):
 
         if elapsed > timer_stats[name]["max_ns"]:
             timer_stats[name]["max_ns"] = elapsed
-            
+
         return result
     return wrapper
 
@@ -48,6 +47,7 @@ subscription = {
 
 ws = None
 
+@timer
 def apply_updates(data, bids, asks, bid_heap, ask_heap):
     if data.get('channel') != 'l2_data':
         return
@@ -74,8 +74,12 @@ def apply_updates(data, bids, asks, bid_heap, ask_heap):
 
                 book[price] = quantity
 
-                
+def print_book(best_bid_price, best_ask_price):
+    print(f"Best Bid: price: {best_bid_price}, qty: {bids[best_bid_price]}")
+    print(f"Best Ask: price: {best_ask_price}, qty: {asks[best_ask_price]}")
+    print()
 
+@timer
 def log_book(bids, asks, bid_heap, ask_heap):
     # remove stale bids
     while bid_heap and -bid_heap[0] not in bids:
@@ -91,9 +95,7 @@ def log_book(bids, asks, bid_heap, ask_heap):
     best_bid_price = -bid_heap[0]
     best_ask_price = ask_heap[0]
 
-    print(f"Best Bid: price: {best_bid_price}, qty: {bids[best_bid_price]}")
-    print(f"Best Ask: price: {best_ask_price}, qty: {asks[best_ask_price]}")
-    print()
+    return best_bid_price, best_ask_price
 
 while True:
     try:
@@ -112,9 +114,16 @@ while True:
 
             apply_updates(data, bids, asks, bid_heap, ask_heap)
             
-            log_book(bids, asks, bid_heap, ask_heap)
+            best_bid_price, best_ask_price = log_book(bids, asks, bid_heap, ask_heap)
+
+            print_book(best_bid_price, best_ask_price)
 
     except KeyboardInterrupt:
+        for func_name in timer_stats:
+            average = timer_stats[func_name]["total_ns"] / timer_stats[func_name]["calls"]
+            timer_stats[func_name]["avg_ns"] = round(average, 2)
+
+        print(timer_stats)
         break
 
     except Exception as e:
