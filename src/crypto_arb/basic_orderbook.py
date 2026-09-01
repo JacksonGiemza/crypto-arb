@@ -2,7 +2,7 @@ import websocket
 import json
 import heapq
 
-from tools import timer, report_stats
+from crypto_arb.tools import timer, report_stats
 
 url = "wss://advanced-trade-ws.coinbase.com"
 
