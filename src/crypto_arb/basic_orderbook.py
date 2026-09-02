@@ -2,7 +2,7 @@ import websocket
 import json
 import heapq
 
-from crypto_arb.tools import timer, report_stats
+from crypto_arb.tools import timer, report_stats, add_update_count
 
 url = "wss://advanced-trade-ws.coinbase.com"
 
@@ -21,8 +21,11 @@ def apply_updates(data, bids, asks, bid_heap, ask_heap):
 
     events = data["events"]
 
+    update_count = 0
+
     for event in events:
         for update in event["updates"]:
+            update_count += 1
 
             side = update["side"]
             price = float(update["price_level"])
@@ -40,6 +43,8 @@ def apply_updates(data, bids, asks, bid_heap, ask_heap):
                     heapq.heappush(heap, order)
 
                 book[price] = quantity
+
+    return update_count
 
 def print_book(best_bid_price, best_ask_price):
     print(f"Best Bid: price: {best_bid_price}, qty: {bids[best_bid_price]}")
@@ -79,7 +84,8 @@ while True:
             message = ws.recv()
             data = json.loads(message)
 
-            apply_updates(data, bids, asks, bid_heap, ask_heap)
+            update_count = apply_updates(data, bids, asks, bid_heap, ask_heap)
+            add_update_count("apply_updates", update_count)
             
             best_bid_price, best_ask_price = log_book(bids, asks, bid_heap, ask_heap)
 
