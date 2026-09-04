@@ -29,13 +29,18 @@ def apply_updates(data, bids, asks, bid_heap, ask_heap):
 
             side = update["side"]
             price = float(update["price_level"])
-            quantity = float(update["new_quantity"])
+            quantity = update["new_quantity"]
 
-            book = bids if side == "bid" else asks
-            heap = bid_heap if side == "bid" else ask_heap
-            order = -price if side == "bid" else price
+            if side == "bid":
+                book = bids
+                heap = bid_heap
+                order = -price
+            else:
+                book = asks
+                heap = ask_heap
+                order = price
             
-            if quantity == 0:
+            if quantity == "0":
                 book.pop(price, None)
 
             else:
@@ -46,7 +51,7 @@ def apply_updates(data, bids, asks, bid_heap, ask_heap):
 
     return update_count
 
-def print_book(best_bid_price, best_ask_price):
+def print_book(best_bid_price, best_ask_price, bids, asks):
     print(f"Best Bid: price: {best_bid_price}, qty: {bids[best_bid_price]}")
     print(f"Best Ask: price: {best_ask_price}, qty: {asks[best_ask_price]}")
     print()
@@ -86,10 +91,10 @@ while True:
 
             update_count = apply_updates(data, bids, asks, bid_heap, ask_heap)
             add_update_count("apply_updates", update_count)
-            
+
             best_bid_price, best_ask_price = log_book(bids, asks, bid_heap, ask_heap)
 
-            print_book(best_bid_price, best_ask_price)
+            print_book(best_bid_price, best_ask_price, bids, asks)
 
     except KeyboardInterrupt:
         report_stats()

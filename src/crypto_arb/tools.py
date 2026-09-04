@@ -41,7 +41,7 @@ def report_stats():
         average = _stats[func_name]["total_ns"] / _stats[func_name]["calls"]
         _stats[func_name]["avg_ns"] = round(average, 2)
 
-        if "total_updates" in _stats[func_name]:
+        if "total_units" in _stats[func_name]:
             avg_per_unit = _stats[func_name]["total_ns"] / _stats[func_name]["total_units"]
             _stats[func_name]["avg_ns_per_unit"] = round(avg_per_unit, 2)
 
@@ -51,7 +51,7 @@ def add_update_count(func_name, total_units):
     if not total_units or func_name not in _stats:
         return
     
-    if "total_updates" not in _stats[func_name]:
+    if "total_units" not in _stats[func_name]:
         _stats[func_name]["total_units"] = total_units
 
     else:
