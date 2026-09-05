@@ -5,6 +5,10 @@ import asyncio
 import json
 from decimal import Decimal
 import heapq
+from zlib import crc32
+
+class ChecksumError(Exception):
+    pass
 
 class KrakenAdapter:
     def __init__(self, products):
@@ -30,8 +34,8 @@ class KrakenAdapter:
 
                     async for message in ws:
                         await self.queue.put(message)
-            except (ConnectionClosedError, ConnectionClosedOK):
-                print('Connection closed, retrying..')
+            except (ConnectionClosedError, ConnectionClosedOK, ChecksumError) as e:
+                print(f"Kraken book invalid/disconnected: {e}. Reconnecting...")
                 await asyncio.sleep(1)
 
     async def processor(self):
@@ -61,7 +65,7 @@ class KrakenAdapter:
 
         updated_products = set()
         for event in events:
-
+            checksum = event["checksum"]
             product = event["symbol"]
             product_book = books[product]
             updated_products.add(product)
@@ -83,7 +87,15 @@ class KrakenAdapter:
                 quantity = ask["qty"]
 
                 self._update_level(price, quantity, ask_book, ask_heap, price)
-                    
+
+            self._truncate_book(product_book)
+            local_checksum = self._checksum(product_book)
+
+            if local_checksum != checksum:
+                raise ChecksumError(
+                    f"{product}: local={local_checksum}, kraken={checksum}"
+                )
+                        
         return updated_products
 
     def _update_level(self, price, quantity, book, heap, order):
@@ -95,10 +107,48 @@ class KrakenAdapter:
 
                 book[price] = quantity
 
+    def _truncate_book(self, book):
+        bids = book["bids"]
+        asks = book["asks"]
+
+        top_bids = set(heapq.nlargest(10, bids.keys()))
+        top_asks = set(heapq.nsmallest(10, asks.keys()))
+
+        for price in list(bids.keys()):
+            if price not in top_bids:
+                del bids[price]
+
+        for price in list(asks.keys()):
+            if price not in top_asks:
+                del asks[price]
+
+    def _checksum(self, book):
+        bids = book["bids"]
+        asks = book["asks"]
+
+        top_bids = heapq.nlargest(10, bids.keys())
+        top_asks = heapq.nsmallest(10, asks.keys())
+
+        checksum_str = ""
+        for price in top_asks:
+            sum_str = self._decimal_to_str(price) + self._decimal_to_str(asks[price])
+            checksum_str += sum_str
+
+        for price in top_bids:
+            sum_str = self._decimal_to_str(price) + self._decimal_to_str(bids[price])
+            checksum_str += sum_str
+
+        return crc32(checksum_str.encode())
+
+    def _decimal_to_str(self, val):
+        s = format(val, "f").replace(".","").lstrip("0")
+        return s or "0"
+
 
 if __name__ == "__main__":
-    kraken = KrakenAdapter(products=["BTC/USD"])
 
+    kraken = KrakenAdapter(products=["BTC/USD"])
+    
     try:
         asyncio.run(kraken.run())
         
