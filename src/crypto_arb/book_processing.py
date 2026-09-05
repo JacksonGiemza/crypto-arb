@@ -4,17 +4,17 @@ from crypto_arb.tools import timer
 @timer
 def apply_updates(data, books):
     if data.get('channel') != 'l2_data':
-        return None, None
+        return 0, set()
 
     events = data["events"]
 
-    updated_products = []
+    updated_products = set()
     update_count = 0
     for event in events:
 
         product = event["product_id"]
         product_book = books[product]
-        updated_products.append(product)
+        updated_products.add(product)
 
         for update in event["updates"]:
             update_count += 1
@@ -70,7 +70,7 @@ def print_top_of_book(books, updated_products):
     
     for product in updated_products:
         book = books[product]
-        if len(book["bid_heap"]) == 0 or len(book["ask_heap"]) == 0:
+        if not book["bid_heap"] or not book["ask_heap"]:
             continue
 
         bids = book['bids']
