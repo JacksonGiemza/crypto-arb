@@ -1,6 +1,17 @@
 import heapq
 from crypto_arb.tools import timer
 
+def init_books(products):
+        books = {}
+        for product in products:
+            books[product] = {
+                "bids": {},
+                "bid_heap": [],
+                "asks": {},
+                "ask_heap": [],
+            }
+        return books
+
 @timer
 def apply_updates(data, books):
     if data.get("channel") != 'l2_data':
@@ -49,7 +60,6 @@ def rebalance_book(books, updated_products):
         return 
     
     for product in updated_products:
-
         book = books[product]
         bids = book["bids"]
         asks = book["asks"]

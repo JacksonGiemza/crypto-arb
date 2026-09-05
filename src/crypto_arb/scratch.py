@@ -1,4 +1,5 @@
 import websocket
+from decimal import Decimal
 import json
 
 
@@ -8,7 +9,7 @@ subscription = {
     "method": "subscribe",
     "params": {
         "channel": "book",
-        "symbol": ["BTC/USD"]
+        "symbol": ["BTC/USD","ETH/USD"]
     }
 }
 
@@ -17,12 +18,11 @@ ws.send(json.dumps(subscription))
 
 while True:
     message = ws.recv()
-    data = json.loads(message)
+    data = json.loads(message, parse_float=Decimal)
     if data.get("channel") != "book":
         continue
-
+    
     updates = data["data"]
 
-    for update in updates:
-        print(update)
-    
+    print(updates)
+    break

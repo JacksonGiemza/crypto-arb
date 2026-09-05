@@ -1,6 +1,6 @@
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
-from crypto_arb.book_processing import apply_updates, rebalance_book, print_top_of_book
+from crypto_arb.book_processing import apply_updates, rebalance_book, print_top_of_book, init_books
 from crypto_arb.tools import add_update_count, report_stats
 import asyncio
 import json
@@ -15,7 +15,7 @@ class CoinbaseAdapter:
         }
         self.products = products
         self.queue = asyncio.Queue(maxsize=1000)
-        self.books = self._init_books()
+        self.books = init_books(products)
         self.RESET = object()
 
     async def receiver(self):
@@ -37,7 +37,7 @@ class CoinbaseAdapter:
             message = await self.queue.get()
             
             if message is self.RESET:
-                self.books = self._init_books()
+                self.books = init_books(self.products)
                 continue
 
             data = json.loads(message)
@@ -52,16 +52,6 @@ class CoinbaseAdapter:
             tg.create_task(self.receiver())
             tg.create_task(self.processor())
 
-    def _init_books(self):
-        books = {}
-        for product in self.products:
-            books[product] = {
-                "bids": {},
-                "bid_heap": [],
-                "asks": {},
-                "ask_heap": [],
-            }
-        return books
 
 if __name__ == "__main__":
     coinbase = CoinbaseAdapter(products=["BTC-USD", "ETH-USD"])
