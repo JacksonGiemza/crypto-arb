@@ -3,7 +3,7 @@ from crypto_arb.tools import timer
 
 @timer
 def apply_updates(data, books):
-    if data.get('channel') != 'l2_data':
+    if data.get("channel") != 'l2_data':
         return 0, set()
 
     events = data["events"]
