@@ -3,14 +3,11 @@ from decimal import Decimal
 import json
 
 
-url = "wss://ws.kraken.com/v2"
-
+url = "wss://advanced-trade-ws.coinbase.com"
 subscription = {
-    "method": "subscribe",
-    "params": {
-        "channel": "book",
-        "symbol": ["BTC/USD","ETH/USD"]
-    }
+    "type": "subscribe",
+    "product_ids": ["BTC-USD"],
+    "channel": "level2"
 }
 
 ws = websocket.create_connection(url)
@@ -18,11 +15,9 @@ ws.send(json.dumps(subscription))
 
 while True:
     message = ws.recv()
-    data = json.loads(message, parse_float=Decimal)
-    if data.get("channel") != "book":
+    data = json.loads(message)
+    if data.get("channel") != "l2_data":
         continue
     
-    updates = data["data"]
-
-    print(updates)
+    print(data)
     break

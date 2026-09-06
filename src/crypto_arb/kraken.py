@@ -26,18 +26,13 @@ class KrakenAdapter:
         self.RESET = object()
 
     async def receiver(self):
-        while True:
-            try:
-                async with connect(self.URL, max_size=None) as ws:
-                    await self.queue.put(self.RESET)
-                    await ws.send(json.dumps(self.subscription))
+        async with connect(self.URL, max_size=None) as ws:
+            await self.queue.put(self.RESET)
+            await ws.send(json.dumps(self.subscription))
 
-                    async for message in ws:
-                        await self.queue.put(message)
-            except (ConnectionClosedError, ConnectionClosedOK, ChecksumError) as e:
-                print(f"Kraken book invalid/disconnected: {e}. Reconnecting...")
-                await asyncio.sleep(1)
-
+            async for message in ws:
+                await self.queue.put(message)
+            
     async def processor(self):
         while True:
             message = await self.queue.get()
@@ -53,10 +48,24 @@ class KrakenAdapter:
             print_top_of_book(self.books, updated_products)
 
     async def run(self):
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(self.receiver())
-            tg.create_task(self.processor())
-    
+        while True:
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    tg.create_task(self.receiver())
+                    tg.create_task(self.processor())
+
+            except* ChecksumError as eg:
+                print("Checksum failed, reconnecting...")
+                self.books = init_books(self.products)
+                self.queue = asyncio.Queue(maxsize=1000)
+                await asyncio.sleep(1)
+
+            except* (ConnectionClosedError, ConnectionClosedOK) as eg:
+                print("Connection closed, reconnecting...")
+                self.books = init_books(self.products)
+                self.queue = asyncio.Queue(maxsize=1000)
+                await asyncio.sleep(1)
+            
     def _apply_updates(self, data, books):
         if data.get("channel") != 'book':
             return set()
