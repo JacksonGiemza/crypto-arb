@@ -12,7 +12,7 @@ class ChecksumError(Exception):
     pass
 
 class KrakenAdapter:
-    def __init__(self, products):
+    def __init__(self, products, quote_queue):
         self.URL = "wss://ws.kraken.com/v2"
         self.subscription = {
             "method": "subscribe",
@@ -27,9 +27,11 @@ class KrakenAdapter:
         self.RESET = object()
 
         self.quotes = {}
+        self.quote_queue = quote_queue
 
     async def receiver(self):
         async with connect(self.URL, max_size=None) as ws:
+            await self.quote_queue.put({})
             await self.queue.put((None, self.RESET))
             await ws.send(json.dumps(self.subscription))
 
@@ -50,9 +52,17 @@ class KrakenAdapter:
             
             updated_products = self._apply_updates(data, self.books)
             rebalance_book(self.books, updated_products)
-            print_top_of_book(self.books, updated_products)
+            # print_top_of_book(self.books, updated_products)
             update_quotes("kraken", self.books, self.quotes, updated_products, exchange_ts, received_at)
+            await self.update_queue(updated_products)
 
+    async def update_queue(self, updated_products):
+        if len(updated_products) == 0:
+            return
+        for product in updated_products:
+            product = product.replace("/","-")
+            await self.quote_queue.put(self.quotes[product])
+    
     async def run(self):
         while True:
             try:

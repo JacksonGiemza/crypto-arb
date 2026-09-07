@@ -1,6 +1,7 @@
 import heapq
 from decimal import Decimal
 # from crypto_arb.tools import timer
+import asyncio
 
 def init_books(products):
         books = {}
@@ -51,14 +52,15 @@ def print_top_of_book(books, updated_products):
 
 def update_quotes(exchange, books, quotes, updated_products, exchange_ts, local_ts):
     for product in updated_products:
+        
         book = books[product]
 
         best_bid = -book["bid_heap"][0]
         best_ask = book["ask_heap"][0]
-
-        quotes[product.replace("/","-")] = {
+        product = product.replace("/","-")
+        quotes[product] = {
             "exchange": exchange,
-            "symbol": product.replace("/","-"),
+            "symbol": product,
             "bid": best_bid,
             "bid_qty": book["bids"][best_bid],
             "ask": best_ask,

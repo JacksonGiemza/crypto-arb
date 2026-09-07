@@ -12,7 +12,7 @@ class SequenceError(Exception):
     pass
 
 class CoinbaseAdapter:
-    def __init__(self, products):
+    def __init__(self, products, quote_queue):
         self.URL = "wss://advanced-trade-ws.coinbase.com"
         self.subscription = {
             "type": "subscribe",
@@ -26,9 +26,11 @@ class CoinbaseAdapter:
         self.last_sequence = None
 
         self.quotes = {}
+        self.quote_queue = quote_queue
 
     async def receiver(self):
         async with connect(self.URL, max_size=None) as ws:
+            await self.quote_queue.put({})
             await self.queue.put((None, self.RESET))
             await ws.send(json.dumps(self.subscription))
 
@@ -51,8 +53,9 @@ class CoinbaseAdapter:
             updated_products = self._apply_updates(data, self.books)
             # add_update_count("_apply_updates", update_count)
             rebalance_book(self.books, updated_products)
-            print_top_of_book(self.books, updated_products)
+            # print_top_of_book(self.books, updated_products)
             update_quotes("coinbase", self.books, self.quotes, updated_products, exchange_ts, received_at)
+            await self.update_queue(updated_products)
 
     async def run(self):
         while True:
@@ -72,6 +75,12 @@ class CoinbaseAdapter:
                 self.books = init_books(self.products)
                 self.queue = asyncio.Queue(maxsize=1000)
                 await asyncio.sleep(1)
+
+    async def update_queue(self, updated_products):
+        if len(updated_products) == 0:
+            return
+        for product in updated_products:
+            await self.quote_queue.put(self.quotes[product])
 
     def _apply_updates(self, data, books):
         sequence_num = data.get("sequence_num")

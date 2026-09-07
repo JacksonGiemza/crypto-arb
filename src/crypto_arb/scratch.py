@@ -1,23 +1,27 @@
-import websocket
-from decimal import Decimal
-import json
+from crypto_arb.coinbase import CoinbaseAdapter
+from crypto_arb.kraken import KrakenAdapter
 
+import asyncio
 
-url = "wss://advanced-trade-ws.coinbase.com"
-subscription = {
-    "type": "subscribe",
-    "product_ids": ["BTC-USD"],
-    "channel": "level2"
-}
+async def get_update(quote_queue):
+    print quote_queue
 
-ws = websocket.create_connection(url)
-ws.send(json.dumps(subscription))
+async def main():
+    quote_queue = asyncio.Queue()
 
-while True:
-    message = ws.recv()
-    data = json.loads(message)
-    if data.get("channel") != "l2_data":
-        continue
-    
-    print(data)
-    break
+    coinbase = CoinbaseAdapter(
+        products=["BTC-USD", "ETH-USD"],
+        quote_queue=quote_queue,
+    )
+
+    kraken = KrakenAdapter(
+        products=["BTC/USD", "ETH/USD"],
+        quote_queue=quote_queue,
+    )
+
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(coinbase.run())
+        tg.create_task(kraken.run())
+
+if __name__ == "__main__":
+    asyncio.run(main())
