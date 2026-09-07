@@ -1,2 +1,3 @@
 /.venv
 /src/crypto_arb/__pycache__
+src/crypto_arb/scratch.ipynb

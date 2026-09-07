@@ -1,10 +1,12 @@
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
-from crypto_arb.book_processing import rebalance_book, print_top_of_book, init_books
+from crypto_arb.book_processing import rebalance_book, print_top_of_book, init_books, update_quotes
 # from crypto_arb.tools import add_update_count, report_stats
+from decimal import Decimal
 import asyncio
 import json
 import heapq
+import time
 
 class SequenceError(Exception):
     pass
@@ -23,17 +25,20 @@ class CoinbaseAdapter:
         self.RESET = object()
         self.last_sequence = None
 
+        self.quotes = {}
+
     async def receiver(self):
         async with connect(self.URL, max_size=None) as ws:
-            await self.queue.put(self.RESET)
+            await self.queue.put((None, self.RESET))
             await ws.send(json.dumps(self.subscription))
 
             async for message in ws:
-                await self.queue.put(message)
+                received_at = time.time_ns()
+                await self.queue.put((received_at, message))
 
     async def processor(self):
         while True:
-            message = await self.queue.get()
+            received_at, message = await self.queue.get()
             
             if message is self.RESET:
                 self.books = init_books(self.products)
@@ -41,11 +46,13 @@ class CoinbaseAdapter:
                 continue
 
             data = json.loads(message)
+            exchange_ts = data["timestamp"]
 
             updated_products = self._apply_updates(data, self.books)
             # add_update_count("_apply_updates", update_count)
             rebalance_book(self.books, updated_products)
             print_top_of_book(self.books, updated_products)
+            update_quotes("coinbase", self.books, self.quotes, updated_products, exchange_ts, received_at)
 
     async def run(self):
         while True:
@@ -85,8 +92,8 @@ class CoinbaseAdapter:
                 # update_count += 1
 
                 side = update["side"]
-                price = float(update["price_level"])
-                quantity = update["new_quantity"]
+                price = Decimal(update["price_level"])
+                quantity = Decimal(update["new_quantity"])
 
                 if side == "bid":
                     book = product_book["bids"]
@@ -97,7 +104,7 @@ class CoinbaseAdapter:
                     heap = product_book["ask_heap"]
                     order = price
                 
-                if quantity == "0":
+                if quantity == Decimal("0"):
                     book.pop(price, None)
 
                 else:
@@ -129,4 +136,6 @@ if __name__ == "__main__":
         
     except KeyboardInterrupt:
         print("Exiting WebSocket..")
+        print(coinbase.quotes)
         # report_stats()
+            
