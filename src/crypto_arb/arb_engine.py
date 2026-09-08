@@ -15,13 +15,18 @@ class ArbEngine:
         self.quotes = self.init_quotes(["BTC-USD", "ETH-USD"], ["coinbase", "kraken"])
 
     def match(self, quotes):
+        fees = {
+            "coinbase": Decimal("0.004"),
+            "kraken": Decimal("0.004"),
+        }
+
         def get_raw_edge(buy_quote, sell_quote):
             buy_price = buy_quote["ask"]
             sell_price = sell_quote["bid"]
 
             ask_qty = buy_quote["ask_qty"]
             bid_qty = sell_quote["bid_qty"]
-
+            
             size = min(ask_qty, bid_qty)
 
             raw_edge = sell_price - buy_price
@@ -52,12 +57,21 @@ class ArbEngine:
 
             for exchange_pair in permutations(self.exchanges, 2):
                 buy_exchange, sell_exchange = exchange_pair
+
                 buy_quote = quotes[product][buy_exchange]
                 sell_quote = quotes[product][sell_exchange]
+
                 raw_edge, size = get_raw_edge(buy_quote,sell_quote)
 
-                if raw_edge > 0:
-                    print(f"{product} | buy {buy_exchange}, sell {sell_exchange} | edge: {raw_edge}, size: {size}")
+                buy_fee = buy_quote["ask"] * size * fees[buy_exchange]
+                sell_fee = sell_quote["bid"] * size * fees[sell_exchange]
+
+                gross_profit = raw_edge * size
+
+                net_profit = gross_profit - buy_fee - sell_fee
+
+                if net_profit > 0:
+                    print(f"{product} | buy {buy_exchange}, sell {sell_exchange} | gross: {gross_profit}, net: {net_profit}")
 
     async def get_update(self):
         while True:
